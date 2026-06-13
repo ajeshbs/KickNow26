@@ -5,7 +5,7 @@ const SPORTS_M3U_URL = 'https://iptv-org.github.io/iptv/categories/sports.m3u';
 const BLOCKED_KEYWORDS = [
   'geo-blocked', 'geoblocked', 'region locked',
   'beinsports', 'bein sports', 'sky sports', 'espn',
-  'fox sports', 'dazn', 'bt sport',
+  'dazn', 'bt sport',
 ];
 
 const PREFERRED_KEYWORDS = [
