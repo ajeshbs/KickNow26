@@ -92,20 +92,26 @@ export async function GET(request: NextRequest) {
       const text = await response.text();
       const baseForRelative = targetUrl;
       const proxyWrap = (u: string) => `/api/proxy?url=${encodeURIComponent(u)}`;
-      const isAbsolute = (s: string) => s.startsWith('http://') || s.startsWith('https://') || s.startsWith('//');
+      const isHttps = (s: string) => s.startsWith('https://') || s.startsWith('//');
+      const isHttp = (s: string) => s.startsWith('http://');
       const rewritten = text.split('\n').map((line) => {
         const trimmed = line.trim();
         if (trimmed === '') return line;
 
         if (trimmed.startsWith('#')) {
           return trimmed.replace(/URI="([^"]+)"/g, (_, url) => {
-            if (isAbsolute(url)) return `URI="${url}"`;
+            if (isHttps(url)) return `URI="${url}"`;
             try { return `URI="${proxyWrap(new URL(url, baseForRelative).href)}"`; }
             catch { return `URI="${proxyWrap(url)}"`; }
           });
         }
 
-        if (isAbsolute(trimmed)) return line;
+        if (isHttps(trimmed)) return line;
+
+        if (isHttp(trimmed)) {
+          const indent = line.match(/^\s*/)?.[0] || '';
+          return `${indent}${proxyWrap(trimmed)}`;
+        }
 
         try {
           const absoluteUrl = new URL(trimmed, baseForRelative).href;
