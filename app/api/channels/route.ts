@@ -7,33 +7,21 @@ export const revalidate = 300;
 
 const KNOWN_CHANNELS: Channel[] = [
   {
-    name: 'FIFA+ 720p',
-    url: 'https://jmp2.uk/plu-660c29b5aec9680008f5b4a4.m3u8',
-    logo: 'https://img.iptv.zone/logo/fifa.png',
-    group: 'FIFA World Cup 2026',
+    name: 'Live Stream 1',
+    url: 'http://4e87b8a2.rossteleccom.net/iptv/UWSCNHYFPPFSA5/545/7322/index.m3u8',
+    logo: 'https://github.com/SKS-WEBDEV/KickNow26/blob/7d3d7fbd1ca2d578626806ee15b710178536936e/public/live.png',
+    group: 'Live',
   },
   {
-    name: 'FOX Sports 1 (1280p)',
-    url: 'https://cors-proxy.cooks.fyi/http://190.11.225.124:5000/live/fs1_hd/playlist.m3u8',
-    logo: 'https://i.imgur.com/O9BapV9.png',
-    group: 'Sports',
+    name: 'Live Stream 2',
+    url: 'http://38b891c9.rossteleccom.net/iptv/4HP7GES799X3WU/7323/index.m3u8',
+    logo: 'https://github.com/SKS-WEBDEV/KickNow26/blob/7d3d7fbd1ca2d578626806ee15b710178536936e/public/live.png',
+    group: 'Live',
   },
   {
-    name: 'FOX Sports 2 (480p)',
-    url: 'https://tvsen7.aynaott.com/foxsports2/index.m3u8',
-    logo: 'https://i.imgur.com/LHtxKI8.png',
-    group: 'Sports',
-  },
-  {
-    name: 'FOX Sports (720p)',
-    url: 'https://jmp2.uk/plu-5a74b8e1e22a61737979c6bf.m3u8',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/FOX_Sports_logo.svg/960px-FOX_Sports_logo.svg.png',
-    group: 'Sports',
-  },
-  {
-    name: 'Sports Grid',
-    url: 'https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa41c26c7309312/sportsgrid/master.m3u8',
-    logo: '',
+    name: 'DD Sports SD (1080p)',
+    url: 'https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/b17adfe543354fdd8d189b110617cddd/index.m3u8',
+    logo: 'https://dtil.tmsimg.com/assets/s158255_ld_h15_aa.png?lock=720x540',
     group: 'Sports',
   },
 ];
