@@ -157,4 +157,45 @@ npm start
 
 ## Disclaimer
 
-This is an **unofficial** project. Not affiliated with FIFA, the FIFA World Cup, Pluto.tv, or iptv-org. All stream sources are publicly available M3U playlists. Match data is from a public API. For educational purposes only.
+**IMPORTANT — PLEASE READ CAREFULLY**
+
+This project is provided **as-is, for educational and informational purposes only**. By using this software, you acknowledge and agree to the following:
+
+### Unofficial Status
+This is an **unofficial** project. It is **not affiliated with, endorsed by, or connected to** FIFA, the Fédération Internationale de Football Association, the FIFA World Cup, any participating national football federations, Pluto.tv, IPTV-org, or any content broadcaster or rights holder.
+
+### No Hosting of Copyrighted Content
+This project does **not host, store, upload, or distribute** any copyrighted video content, broadcast feeds, or media files. It is a client-side software tool that:
+
+- Aggregates **publicly available** M3U playlist URLs from third-party open directories (IPTV-org)
+- Displays match information from a **public third-party API** (worldcup26.ir)
+- Plays media directly from **third-party CDN servers** — the software never stores, caches, or retransmits media
+
+All media streams originate from third-party servers and are transmitted **directly between those servers and the end user's browser**. This project acts solely as a directory/index of publicly listed streams.
+
+### User Responsibility
+- You are **solely responsible** for ensuring that your use of this software complies with all applicable laws in your jurisdiction
+- You should **only access streams** that you are legally entitled to view
+- Streaming copyrighted content without proper authorization may be illegal in some countries
+- This project does not encourage or condone piracy or copyright infringement
+
+### Third-Party Services
+This project relies on third-party services including but not limited to:
+- IPTV-org (M3U playlist directory)
+- worldcup26.ir (match data API)
+- Various CDN providers (Pluto.tv, CloudFront, Akamai, etc.)
+
+The availability, legality, and content of these third-party services are **outside the control** of this project's maintainers.
+
+### No Warranties
+This software is provided **"as is" without warranty of any kind**, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability arising from the use of the software.
+
+### Trademarks
+All trademarks, service marks, and trade names referenced herein (including "FIFA", "World Cup", "FOX Sports", etc.) are the property of their respective owners. Reference to any product, service, or organization does not imply endorsement or affiliation.
+
+### Removal of Content
+If you are a rights holder and believe that any content referenced by this project infringes your copyright, please open an issue or contact the maintainers. Upon verification, the infringing references will be promptly removed.
+
+---
+
+**For educational purposes only. Use at your own risk.**
