@@ -94,6 +94,8 @@ export async function GET(request: NextRequest) {
       const proxyWrap = (u: string) => `/api/proxy?url=${encodeURIComponent(u)}`;
       const isHttps = (s: string) => s.startsWith('https://') || s.startsWith('//');
       const isHttp = (s: string) => s.startsWith('http://');
+      const isPlaylist = (s: string) => /\.m3u8?\b/i.test(s.split('?')[0]);
+      const upgradeToHttps = (s: string) => `https${s.slice(4)}`;
       const rewritten = text.split('\n').map((line) => {
         const trimmed = line.trim();
         if (trimmed === '') return line;
@@ -101,22 +103,27 @@ export async function GET(request: NextRequest) {
         if (trimmed.startsWith('#')) {
           return trimmed.replace(/URI="([^"]+)"/g, (_, url) => {
             if (isHttps(url)) return `URI="${url}"`;
-            try { return `URI="${proxyWrap(new URL(url, baseForRelative).href)}"`; }
-            catch { return `URI="${proxyWrap(url)}"`; }
+            if (isHttp(url)) return `URI="${upgradeToHttps(url)}"`;
+            try {
+              const abs = new URL(url, baseForRelative).href;
+              if (isPlaylist(abs)) return `URI="${proxyWrap(abs)}"`;
+              return `URI="${upgradeToHttps(abs)}"`;
+            } catch { return `URI="${proxyWrap(url)}"`; }
           });
         }
 
         if (isHttps(trimmed)) return line;
 
         if (isHttp(trimmed)) {
-          const indent = line.match(/^\s*/)?.[0] || '';
-          return `${indent}${proxyWrap(trimmed)}`;
+          return line.replace(trimmed, upgradeToHttps(trimmed));
         }
 
         try {
           const absoluteUrl = new URL(trimmed, baseForRelative).href;
           const indent = line.match(/^\s*/)?.[0] || '';
-          return `${indent}${proxyWrap(absoluteUrl)}`;
+          if (isPlaylist(absoluteUrl)) return `${indent}${proxyWrap(absoluteUrl)}`;
+          if (isHttp(absoluteUrl)) return `${indent}${upgradeToHttps(absoluteUrl)}`;
+          return `${indent}${absoluteUrl}`;
         } catch { return line; }
       }).join('\n');
       return new NextResponse(rewritten, { status: 200, headers: responseHeaders });
