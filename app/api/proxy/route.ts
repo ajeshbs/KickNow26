@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const CLOUDFLARE_WORKER_URL = process.env.NEXT_PUBLIC_CLOUDFLARE_WORKER_URL || '';
 
 function isM3uUrl(url: string): boolean {
   const ext = url.split('?')[0].toLowerCase();
@@ -92,6 +93,10 @@ export async function GET(request: NextRequest) {
       const text = await response.text();
       const baseForRelative = targetUrl;
       const proxyWrap = (u: string) => `/api/proxy?url=${encodeURIComponent(u)}`;
+      const segmentWrap = (u: string) =>
+        CLOUDFLARE_WORKER_URL
+          ? `${CLOUDFLARE_WORKER_URL}?url=${encodeURIComponent(u)}`
+          : proxyWrap(u);
       const isHttps = (s: string) => s.startsWith('https://') || s.startsWith('//');
       const isHttp = (s: string) => s.startsWith('http://');
       const isPlaylist = (s: string) => /\.m3u8?\b/i.test(s.split('?')[0]);
@@ -102,13 +107,13 @@ export async function GET(request: NextRequest) {
         if (trimmed.startsWith('#')) {
           return trimmed.replace(/URI="([^"]+)"/g, (_, url) => {
             if (isHttps(url)) return `URI="${url}"`;
-            if (isHttp(url)) return `URI="${proxyWrap(url)}"`;
+            if (isHttp(url)) return `URI="${segmentWrap(url)}"`;
             try {
               const abs = new URL(url, baseForRelative).href;
               if (isPlaylist(abs)) return `URI="${proxyWrap(abs)}"`;
-              if (isHttp(abs)) return `URI="${proxyWrap(abs)}"`;
+              if (isHttp(abs)) return `URI="${segmentWrap(abs)}"`;
               return `URI="${abs}"`;
-            } catch { return `URI="${proxyWrap(url)}"`; }
+            } catch { return `URI="${segmentWrap(url)}"`; }
           });
         }
 
@@ -116,14 +121,14 @@ export async function GET(request: NextRequest) {
 
         if (isHttp(trimmed)) {
           const indent = line.match(/^\s*/)?.[0] || '';
-          return `${indent}${proxyWrap(trimmed)}`;
+          return `${indent}${segmentWrap(trimmed)}`;
         }
 
         try {
           const absoluteUrl = new URL(trimmed, baseForRelative).href;
           const indent = line.match(/^\s*/)?.[0] || '';
           if (isPlaylist(absoluteUrl)) return `${indent}${proxyWrap(absoluteUrl)}`;
-          if (isHttp(absoluteUrl)) return `${indent}${proxyWrap(absoluteUrl)}`;
+          if (isHttp(absoluteUrl)) return `${indent}${segmentWrap(absoluteUrl)}`;
           return `${indent}${absoluteUrl}`;
         } catch { return line; }
       }).join('\n');
