@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-const CLOUDFLARE_WORKER_URL = process.env.NEXT_PUBLIC_CLOUDFLARE_WORKER_URL || '';
 
 function isM3uUrl(url: string): boolean {
   const ext = url.split('?')[0].toLowerCase();
@@ -61,13 +60,7 @@ export async function GET(request: NextRequest) {
     const clientCookies = request.headers.get('cookie');
     const referer = request.headers.get('referer') || `${BASE_URL}/`;
 
-    // Route playlist fetches through CF Worker so segment tokens match the
-    // same IP that fetched the playlist (many IPTV servers IP-lock md5 tokens).
-    const fetchUrl = isM3uUrl(decodedUrl) && CLOUDFLARE_WORKER_URL
-      ? `${CLOUDFLARE_WORKER_URL}?url=${encodeURIComponent(targetUrl)}`
-      : targetUrl;
-
-    const response = await fetch(fetchUrl, {
+    const response = await fetch(targetUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': '*/*',
@@ -79,8 +72,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const errBody = await response.text().catch(() => '');
-      return NextResponse.json({ error: `Stream fetch failed: ${response.status}`, detail: errBody.slice(0, 500) }, { status: response.status });
+      return NextResponse.json({ error: `Stream fetch failed: ${response.status}` }, { status: response.status });
     }
 
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
@@ -100,13 +92,9 @@ export async function GET(request: NextRequest) {
       const text = await response.text();
       const baseForRelative = targetUrl;
       const proxyWrap = (u: string) => `/api/proxy?url=${encodeURIComponent(u)}`;
-      const segmentWrap = (u: string) =>
-        CLOUDFLARE_WORKER_URL
-          ? `${CLOUDFLARE_WORKER_URL}?url=${encodeURIComponent(u)}`
-          : proxyWrap(u);
       const isHttps = (s: string) => s.startsWith('https://') || s.startsWith('//');
       const isHttp = (s: string) => s.startsWith('http://');
-      const isPlaylist = (s: string) => /\.m3u8?\b/i.test(s.split('?')[0]);
+      const upgradeToHttps = (s: string) => `https${s.slice(4)}`;
       const rewritten = text.split('\n').map((line) => {
         const trimmed = line.trim();
         if (trimmed === '') return line;
@@ -114,29 +102,22 @@ export async function GET(request: NextRequest) {
         if (trimmed.startsWith('#')) {
           return trimmed.replace(/URI="([^"]+)"/g, (_, url) => {
             if (isHttps(url)) return `URI="${url}"`;
-            if (isHttp(url)) return `URI="${segmentWrap(url)}"`;
-            try {
-              const abs = new URL(url, baseForRelative).href;
-              if (isPlaylist(abs)) return `URI="${proxyWrap(abs)}"`;
-              if (isHttp(abs)) return `URI="${segmentWrap(abs)}"`;
-              return `URI="${abs}"`;
-            } catch { return `URI="${segmentWrap(url)}"`; }
+            if (isHttp(url)) return `URI="${upgradeToHttps(url)}"`;
+            try { return `URI="${proxyWrap(new URL(url, baseForRelative).href)}"`; }
+            catch { return `URI="${proxyWrap(url)}"`; }
           });
         }
 
         if (isHttps(trimmed)) return line;
 
         if (isHttp(trimmed)) {
-          const indent = line.match(/^\s*/)?.[0] || '';
-          return `${indent}${segmentWrap(trimmed)}`;
+          return line.replace(trimmed, upgradeToHttps(trimmed));
         }
 
         try {
           const absoluteUrl = new URL(trimmed, baseForRelative).href;
           const indent = line.match(/^\s*/)?.[0] || '';
-          if (isPlaylist(absoluteUrl)) return `${indent}${proxyWrap(absoluteUrl)}`;
-          if (isHttp(absoluteUrl)) return `${indent}${segmentWrap(absoluteUrl)}`;
-          return `${indent}${absoluteUrl}`;
+          return `${indent}${proxyWrap(absoluteUrl)}`;
         } catch { return line; }
       }).join('\n');
       return new NextResponse(rewritten, { status: 200, headers: responseHeaders });
