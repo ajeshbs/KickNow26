@@ -36,7 +36,7 @@ export function middleware(request: NextRequest) {
     <div class="icon">🚧</div>
     <h1>Under Development</h1>
     <p>This site is currently being updated.</p>
-    <p>Please check back later.</p>
+    <p>We are currently experiencing bandwidth related issues and are actively fixing the server for smoother streaming experience. Please come back later.</p>
   </div>
 </body>
 </html>`,
