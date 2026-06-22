@@ -94,7 +94,6 @@ export async function GET(request: NextRequest) {
       const proxyWrap = (u: string) => `/api/proxy?url=${encodeURIComponent(u)}`;
       const isHttps = (s: string) => s.startsWith('https://') || s.startsWith('//');
       const isHttp = (s: string) => s.startsWith('http://');
-      const upgradeToHttps = (s: string) => `https${s.slice(4)}`;
       const rewritten = text.split('\n').map((line) => {
         const trimmed = line.trim();
         if (trimmed === '') return line;
@@ -102,7 +101,7 @@ export async function GET(request: NextRequest) {
         if (trimmed.startsWith('#')) {
           return trimmed.replace(/URI="([^"]+)"/g, (_, url) => {
             if (isHttps(url)) return `URI="${url}"`;
-            if (isHttp(url)) return `URI="${upgradeToHttps(url)}"`;
+            if (isHttp(url)) return `URI="${proxyWrap(url)}"`;
             try { return `URI="${proxyWrap(new URL(url, baseForRelative).href)}"`; }
             catch { return `URI="${proxyWrap(url)}"`; }
           });
@@ -111,7 +110,8 @@ export async function GET(request: NextRequest) {
         if (isHttps(trimmed)) return line;
 
         if (isHttp(trimmed)) {
-          return line.replace(trimmed, upgradeToHttps(trimmed));
+          const indent = line.match(/^\s*/)?.[0] || '';
+          return `${indent}${proxyWrap(trimmed)}`;
         }
 
         try {
