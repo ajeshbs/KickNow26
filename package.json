@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/build.js",
     "build:worker": "opennextjs-cloudflare build",
     "preview": "npm run build:worker && opennextjs-cloudflare preview",
     "deploy": "npm run build:worker && opennextjs-cloudflare deploy",
