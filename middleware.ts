@@ -47,6 +47,40 @@ export function middleware(request: NextRequest) {
     );
   }
 
+  // Passlock Check
+  const passlock = process.env.PASSLOCK;
+  if (passlock) {
+    const { pathname } = request.nextUrl;
+
+    const isExcluded =
+      pathname.startsWith('/login') ||
+      pathname.startsWith('/api/auth') ||
+      pathname.startsWith('/_next') ||
+      pathname.includes('.') ||
+      pathname === '/favicon.ico';
+
+    if (!isExcluded) {
+      const authorizedCookie = request.cookies.get('passlock_authorized');
+      if (authorizedCookie?.value !== passlock) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/login';
+        url.searchParams.set('to', pathname);
+        return NextResponse.redirect(url);
+      }
+    }
+
+    if (pathname.startsWith('/login')) {
+      const authorizedCookie = request.cookies.get('passlock_authorized');
+      if (authorizedCookie?.value === passlock) {
+        const to = request.nextUrl.searchParams.get('to') || '/';
+        const url = request.nextUrl.clone();
+        url.pathname = to;
+        url.searchParams.delete('to');
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
   return NextResponse.next();
 }
 
