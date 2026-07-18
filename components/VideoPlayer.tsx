@@ -4,33 +4,44 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import Hls from 'hls.js';
 import type { Channel } from '@/types';
 
-interface Props {
-  channel: Channel | null;
-  onClose: () => void;
-}
-
 type PlayerState = 'loading' | 'playing' | 'reconnecting' | 'error';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
 
-function getStreamUrl(url: string): string {
-  return `/api/proxy?url=${encodeURIComponent(url)}`;
+export default function VideoPlayer({ channel }: { channel: Channel | null }) {
+  if (!channel) {
+    return (
+      <div className="flex aspect-video items-center justify-center rounded-2xl border border-white/10 bg-black/60">
+        <p className="text-sm text-white/40">Select a channel below to start watching.</p>
+      </div>
+    );
+  }
+  // key remounts the player (resetting all state) whenever the channel changes
+  return <Player key={channel.url} channel={channel} />;
 }
 
-export default function VideoPlayer({ channel, onClose }: Props) {
+function Player({ channel }: { channel: Channel }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const retryRef = useRef(0);
-  const urlRef = useRef('');
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retriesRef = useRef(0);
+  const startRef = useRef<() => void>(() => {});
   const [state, setState] = useState<PlayerState>('loading');
+  const [retryCount, setRetryCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const streamUrl = `/api/proxy?url=${encodeURIComponent(channel.url)}`;
 
   const cleanup = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
+    }
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
     }
     if (hlsRef.current) {
       hlsRef.current.destroy();
@@ -43,31 +54,34 @@ export default function VideoPlayer({ channel, onClose }: Props) {
     }
   }, []);
 
-  const startPlayback = useCallback((url: string) => {
+  const startPlayback = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    const url = streamUrl;
     const isHls = url.includes('.m3u8') || url.includes('.m3u');
 
     const retry = () => {
-      retryRef.current++;
-      if (retryRef.current > MAX_RETRIES) {
+      retriesRef.current++;
+      setRetryCount(retriesRef.current);
+      if (retriesRef.current > MAX_RETRIES) {
         setErrorMsg('Stream unavailable after multiple retries.');
         setState('error');
         return;
       }
       setState('reconnecting');
       cleanup();
-      setTimeout(() => startPlayback(urlRef.current), RETRY_DELAY);
+      retryTimerRef.current = setTimeout(() => startRef.current(), RETRY_DELAY);
     };
 
-    const onError = (msg: string) => {
-      retry();
+    const markPlaying = () => {
+      retriesRef.current = 0;
+      setRetryCount(0);
+      if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+      setState('playing');
     };
 
-    timeoutRef.current = setTimeout(() => {
-      retry();
-    }, 30000);
+    timeoutRef.current = setTimeout(retry, 30000);
 
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
@@ -90,148 +104,95 @@ export default function VideoPlayer({ channel, onClose }: Props) {
       hls.loadSource(url);
       hls.attachMedia(video);
 
-      video.addEventListener('playing', () => {
-        retryRef.current = 0;
-        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
-        setState('playing');
-      }, { once: true });
+      video.addEventListener('playing', markPlaying, { once: true });
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         video.play().catch(() => {});
       });
 
       hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          retry();
-        }
+        if (data.fatal) retry();
       });
     } else if (isHls && video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = url;
-      video.addEventListener('playing', () => {
-        retryRef.current = 0;
-        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
-        setState('playing');
-      }, { once: true });
-      video.addEventListener('loadedmetadata', () => {
-        video.play().catch(() => {});
-      }, { once: true });
-      video.addEventListener('error', () => onError('Stream format not supported.'), { once: true });
+      video.addEventListener('playing', markPlaying, { once: true });
+      video.addEventListener('loadedmetadata', () => { video.play().catch(() => {}); }, { once: true });
+      video.addEventListener('error', retry, { once: true });
     } else if (!isHls) {
       video.src = url;
-      video.addEventListener('playing', () => {
-        retryRef.current = 0;
-        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
-        setState('playing');
-      }, { once: true });
-      video.addEventListener('loadedmetadata', () => {
-        video.play().catch(() => {});
-      }, { once: true });
-      video.addEventListener('error', () => onError('Failed to load stream.'), { once: true });
+      video.addEventListener('playing', markPlaying, { once: true });
+      video.addEventListener('loadedmetadata', () => { video.play().catch(() => {}); }, { once: true });
+      video.addEventListener('error', retry, { once: true });
     } else {
-      onError('HLS not supported on this browser.');
+      setErrorMsg('HLS not supported on this browser.');
+      setState('error');
     }
-  }, [cleanup]);
+  }, [streamUrl, cleanup]);
 
   useEffect(() => {
-    if (!channel) return;
-    cleanup();
-    retryRef.current = 0;
-    setState('loading');
-    setErrorMsg(null);
-    urlRef.current = getStreamUrl(channel.url);
+    startRef.current = startPlayback;
+  }, [startPlayback]);
 
-    startPlayback(urlRef.current);
-
+  useEffect(() => {
+    startRef.current();
     return cleanup;
-  }, [channel, cleanup, startPlayback]);
-
-  if (!channel) return null;
+  }, [cleanup]);
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/90">
-      <div className="relative w-full max-w-5xl mx-4">
-        <div className="absolute -top-10 left-0 right-0 flex items-center justify-between z-40 px-1">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-[10px]">TV</span>
-            </div>
-            <span className="text-white text-sm font-medium truncate">{channel.name}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {state === 'loading' && (
-              <span className="text-white/40 text-xs flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                Loading
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/50">
+      <div className="relative aspect-video bg-black">
+        {(state === 'loading' || state === 'reconnecting') && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-gold-400/30 border-t-gold-400" />
+              <span className="text-sm text-white/40">
+                {state === 'reconnecting' ? 'Reconnecting…' : 'Loading stream…'}
               </span>
-            )}
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/60 hover:text-red-400"
-              title="Close"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              {state === 'reconnecting' && (
+                <span className="text-xs text-white/20">Retry {retryCount}/{MAX_RETRIES}</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {state === 'error' && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
+            <div className="flex flex-col items-center gap-4 px-6 text-center">
+              <svg className="h-12 w-12 text-gold-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
-            </button>
+              <span className="text-sm text-white/50">{errorMsg}</span>
+              <button
+                onClick={() => {
+                  retriesRef.current = 0;
+                  setRetryCount(0);
+                  cleanup();
+                  setState('loading');
+                  setErrorMsg(null);
+                  startRef.current();
+                }}
+                className="rounded-lg bg-gold-400 px-4 py-2 text-xs font-semibold text-navy-950 transition-opacity hover:opacity-90"
+              >
+                Retry now
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="relative bg-black rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-white/10">
-          <div className="relative aspect-video bg-black">
-            {(state === 'loading' || state === 'reconnecting') && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-10 h-10 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
-                  <span className="text-white/40 text-sm">
-                    {state === 'reconnecting' ? 'Reconnecting...' : 'Loading stream...'}
-                  </span>
-                  {state === 'reconnecting' && (
-                    <span className="text-white/20 text-xs">Retry {retryRef.current}/{MAX_RETRIES}</span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {state === 'error' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-                <div className="flex flex-col items-center gap-4 px-6 text-center">
-                  <svg className="w-12 h-12 text-red-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  <span className="text-white/50 text-sm">{errorMsg}</span>
-                  <div className="flex items-center gap-2">
-                    <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs transition-colors">
-                      Close
-                    </button>
-                    <button
-                      onClick={() => {
-                        retryRef.current = 0;
-                        cleanup();
-                        setState('loading');
-                        setErrorMsg(null);
-                        startPlayback(urlRef.current);
-                      }}
-                      className="px-4 py-2 rounded-lg bg-red-600/80 hover:bg-red-500 text-white text-xs transition-colors"
-                    >
-                      Retry Now
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <video
-              ref={videoRef}
-              className="w-full h-full object-contain"
-              playsInline
-              autoPlay
-              muted
-              controls
-              preload="auto"
-              disablePictureInPicture
-            />
-          </div>
-        </div>
+        <video
+          ref={videoRef}
+          className="h-full w-full object-contain"
+          playsInline
+          autoPlay
+          muted
+          controls
+          preload="auto"
+          disablePictureInPicture
+        />
+      </div>
+      <div className="flex items-center gap-2 border-t border-white/10 bg-navy-950 px-4 py-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-gold-400" />
+        <span className="truncate text-xs text-white/60">{channel.name}</span>
       </div>
     </div>
   );

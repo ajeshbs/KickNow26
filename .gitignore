@@ -25,6 +25,7 @@ dist/
 # Wrangler / Cloudflare
 .wrangler/
 cloudflare-env.d.ts
+worker-configuration.d.ts
 
 # Debug logs
 npm-debug.log*

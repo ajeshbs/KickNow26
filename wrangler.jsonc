@@ -15,7 +15,12 @@
     "enabled": true
   },
   "vars": {
-    "MAINTENANCE_MODE": "false",
-    "PASSLOCK": "AswathiAjesh@21"
-  }
+    "MAINTENANCE_MODE": "false"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "KICKNOW_KV",
+      "id": "7083a777c1ae43029e358dfe6a93929e"
+    }
+  ]
 }
