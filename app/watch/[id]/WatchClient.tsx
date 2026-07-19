@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { FdMatch, StoredChannel } from '@/types';
+import type { FdMatch, StoredChannel, StreamProxy } from '@/types';
 import VideoPlayer from '@/components/VideoPlayer';
 import ChannelSelector from '@/components/ChannelSelector';
 import { isLive } from '@/lib/competitions';
@@ -10,9 +10,11 @@ import { formatKickoffDateTime } from '@/lib/local-time';
 export default function WatchClient({
   match,
   channels,
+  proxy,
 }: {
   match: FdMatch;
   channels: StoredChannel[];
+  proxy: StreamProxy | null;
 }) {
   const [channel, setChannel] = useState<StoredChannel | null>(channels[0] ?? null);
 
@@ -37,7 +39,7 @@ export default function WatchClient({
         )}
       </header>
 
-      <VideoPlayer channel={channel} />
+      <VideoPlayer channel={channel} proxy={proxy} />
 
       <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-white/60">Channels</h2>

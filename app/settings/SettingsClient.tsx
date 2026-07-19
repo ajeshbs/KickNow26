@@ -6,6 +6,79 @@ import { COUNTRIES } from '@/lib/countries';
 import { SUGGESTED_CHANNELS } from '@/lib/presets';
 import type { StoredChannel } from '@/types';
 
+function ProxySettings() {
+  const [url, setUrl] = useState('');
+  const [token, setToken] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json() as Promise<{ streamProxyUrl: string; streamProxyToken: string }>)
+      .then((c) => {
+        setUrl(c.streamProxyUrl);
+        setToken(c.streamProxyToken);
+        setLoaded(true);
+      })
+      .catch(() => setStatus('Failed to load'));
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ streamProxyUrl: url, streamProxyToken: token }),
+      });
+      const data = (await res.json()) as { error?: string };
+      setStatus(res.ok ? 'Saved ✓' : data.error || 'Save failed');
+    } catch {
+      setStatus('Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-navy-900 p-4">
+      <h2 className="text-sm font-bold uppercase tracking-widest text-white/70">Streaming proxy</h2>
+      <p className="mt-1 text-xs text-white/40">
+        Optional VPS proxy for full-quality streams (see <code>vps-proxy/</code> in the repo).
+        Leave empty to use the built-in Cloudflare proxy.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://proxy.yourdomain.com"
+          spellCheck={false}
+          disabled={!loaded}
+          className="min-w-64 flex-1 rounded-lg border border-white/10 bg-navy-950 px-3 py-2 font-mono text-xs text-white/80 outline-none focus:border-gold-400/60"
+        />
+        <input
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder="Token"
+          spellCheck={false}
+          disabled={!loaded}
+          className="w-48 rounded-lg border border-white/10 bg-navy-950 px-3 py-2 font-mono text-xs text-white/80 outline-none focus:border-gold-400/60"
+        />
+        <button
+          onClick={save}
+          disabled={saving || !loaded}
+          className="rounded-lg border border-gold-400/60 px-4 py-2 text-xs font-semibold text-gold-300 transition-colors hover:bg-gold-400/10 disabled:opacity-40"
+        >
+          {saving ? 'Saving…' : 'Save proxy'}
+        </button>
+        {status && <span className="text-xs text-white/50">{status}</span>}
+      </div>
+    </section>
+  );
+}
+
 function newChannel(): StoredChannel {
   return {
     id: crypto.randomUUID(),
@@ -96,6 +169,8 @@ export default function SettingsClient() {
 
   return (
     <div className="flex flex-col gap-4">
+      <ProxySettings />
+
       {presetsLeft > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold-400/20 bg-gold-400/5 p-4">
           <p className="text-sm text-white/60">

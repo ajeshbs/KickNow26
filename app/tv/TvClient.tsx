@@ -1,17 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import type { StoredChannel } from '@/types';
+import type { StoredChannel, StreamProxy } from '@/types';
 import VideoPlayer from '@/components/VideoPlayer';
 import ChannelSelector from '@/components/ChannelSelector';
 import { RMTV_CODE } from '@/lib/competitions';
 
-export default function TvClient({ channels }: { channels: StoredChannel[] }) {
+export default function TvClient({
+  channels,
+  proxy,
+}: {
+  channels: StoredChannel[];
+  proxy: StreamProxy | null;
+}) {
   const [channel, setChannel] = useState<StoredChannel | null>(channels[0] ?? null);
 
   return (
     <>
-      <VideoPlayer channel={channel} />
+      <VideoPlayer channel={channel} proxy={proxy} />
       {channels.length > 1 && (
         <ChannelSelector
           channels={channels}

@@ -2,14 +2,20 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react';
 import Hls from 'hls.js';
-import type { StoredChannel } from '@/types';
+import type { StoredChannel, StreamProxy } from '@/types';
 
 type PlayerState = 'loading' | 'playing' | 'reconnecting' | 'error';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
 
-export default function VideoPlayer({ channel }: { channel: StoredChannel | null }) {
+export default function VideoPlayer({
+  channel,
+  proxy,
+}: {
+  channel: StoredChannel | null;
+  proxy?: StreamProxy | null;
+}) {
   if (!channel) {
     return (
       <div className="flex aspect-video items-center justify-center rounded-2xl border border-white/10 bg-black/60">
@@ -18,10 +24,10 @@ export default function VideoPlayer({ channel }: { channel: StoredChannel | null
     );
   }
   // key remounts the player (resetting all state) whenever the channel changes
-  return <Player key={channel.url} channel={channel} />;
+  return <Player key={channel.url} channel={channel} proxy={proxy ?? null} />;
 }
 
-function Player({ channel }: { channel: StoredChannel }) {
+function Player({ channel, proxy }: { channel: StoredChannel; proxy: StreamProxy | null }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -32,7 +38,10 @@ function Player({ channel }: { channel: StoredChannel }) {
   const [retryCount, setRetryCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const streamUrl = `/api/proxy?url=${encodeURIComponent(channel.url)}${channel.proxySegments ? '&seg=1' : ''}`;
+  const segParam = channel.proxySegments ? '&seg=1' : '';
+  const streamUrl = proxy?.url
+    ? `${proxy.url}/p?url=${encodeURIComponent(channel.url)}${segParam}&t=${encodeURIComponent(proxy.token)}`
+    : `/api/proxy?url=${encodeURIComponent(channel.url)}${segParam}`;
 
   const cleanup = useCallback(() => {
     if (timeoutRef.current) {

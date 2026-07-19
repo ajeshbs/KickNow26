@@ -1,13 +1,20 @@
 import Navigation from '@/components/Navigation';
 import TvClient from './TvClient';
 import { getChannels, channelsForCompetition } from '@/lib/channels';
+import { getConfig } from '@/lib/config';
 import { RMTV_CODE } from '@/lib/competitions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function TvPage() {
-  const all = await getChannels().catch(() => []);
+  const [all, config] = await Promise.all([
+    getChannels().catch(() => []),
+    getConfig().catch(() => null),
+  ]);
   const channels = channelsForCompetition(all, RMTV_CODE);
+  const proxy = config?.streamProxyUrl
+    ? { url: config.streamProxyUrl, token: config.streamProxyToken }
+    : null;
 
   return (
     <>
@@ -19,7 +26,7 @@ export default async function TvPage() {
           </h1>
           <p className="text-xs text-white/40">24/7 club channel</p>
         </header>
-        <TvClient channels={channels} />
+        <TvClient channels={channels} proxy={proxy} />
       </main>
     </>
   );

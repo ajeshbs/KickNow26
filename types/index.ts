@@ -1,3 +1,9 @@
+/** External VPS stream proxy, as passed to the player (from AppConfig). */
+export interface StreamProxy {
+  url: string;
+  token: string;
+}
+
 /** One hand-picked IPTV channel, stored in KV under channels:v1. */
 export interface StoredChannel {
   id: string;
