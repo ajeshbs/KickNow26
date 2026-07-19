@@ -152,8 +152,10 @@ async function handleProxy(reqUrl, res) {
 /* ── ffmpeg restream (/r) ───────────────────────────────────────────── */
 
 const RESTREAM_ROOT = join(tmpdir(), 'kicknow-restream');
-const IDLE_MS = 90_000;
-const MAX_JOBS = 2; // protect the CPU — one match + RM TV at most
+// Short idle + single job: IPTV accounts allow ~1 concurrent connection, and a
+// lingering ffmpeg holds the slot → provider 401s everything (incl. channel
+// switches). One viewer = one restream at a time.
+const IDLE_MS = 30_000;
 const jobs = new Map(); // id → { id, proc, dir, lastAccess }
 
 function jobId(src) {
@@ -176,10 +178,8 @@ function ensureJob(src) {
     existing.lastAccess = Date.now();
     return existing;
   }
-  if (jobs.size >= MAX_JOBS) {
-    const oldest = [...jobs.values()].sort((a, b) => a.lastAccess - b.lastAccess)[0];
-    stopJob(oldest.id);
-  }
+  // Free the provider's connection slot before opening a new one.
+  for (const other of [...jobs.values()]) stopJob(other.id);
 
   const dir = join(RESTREAM_ROOT, id);
   rmSync(dir, { recursive: true, force: true });
