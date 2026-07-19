@@ -190,8 +190,11 @@ function ensureJob(src) {
   const args = [
     '-hide_banner', '-loglevel', 'warning', '-nostdin',
     '-user_agent', UA,
+    '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
     '-i', src,
     '-vf', vf,
+    // vfr avoids mass frame duplication when source timestamps are messy
+    '-fps_mode', 'vfr',
     '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', vbit, '-maxrate', vbit, '-bufsize', '10M',
     '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
     '-f', 'hls', '-hls_time', '4', '-hls_list_size', '6',
@@ -223,13 +226,29 @@ setInterval(() => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Normalize a pasted channel URL to the HLS form for ffmpeg — joining via the
+ * playlist starts at a clean segment boundary (far less decode garbage than
+ * tuning into a raw endless TS mid-GOP).
+ */
+function restreamSource(url) {
+  try {
+    const u = new URL(url);
+    // bare Xtream: /user/pass/id or /live/user/pass/id → /live/user/pass/id.m3u8
+    const m = u.pathname.match(/^\/(?:live\/)?([^/]+)\/([^/]+)\/(\d+)$/);
+    if (m) {
+      u.pathname = `/live/${m[1]}/${m[2]}/${m[3]}.m3u8`;
+      return u.href;
+    }
+  } catch {}
+  return withLivePrefix(url) ?? url;
+}
+
 async function handleRestreamStart(reqUrl, res) {
   const target = reqUrl.searchParams.get('url');
   if (!target) return send(res, 400, { 'Content-Type': 'text/plain' }, 'missing url');
 
-  // Feed ffmpeg the /live/ HLS form when the pasted URL is the extension-less
-  // or .m3u8-without-/live/ Xtream variant.
-  const src = withLivePrefix(target) ?? target;
+  const src = restreamSource(target);
   const job = ensureJob(src);
 
   // Wait for the first playlist to appear (encoder startup: usually 3–8s).
