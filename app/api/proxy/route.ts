@@ -49,6 +49,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
   }
 
+  // seg=1 → also route media segments through this proxy (for channels whose
+  // streams fail direct: IP-bound tokens, missing CORS, http-only segments).
+  const proxySegs = request.nextUrl.searchParams.get('seg') === '1';
+  const segSuffix = proxySegs ? '&seg=1' : '';
+
   try {
     const decodedUrl = decodeURIComponent(urlParam);
 
@@ -87,7 +92,7 @@ export async function GET(request: NextRequest) {
           return trimmed.replace(/URI="([^"]+)"/g, (_, uri) => {
             const abs = toAbsolute(uri, baseUrl);
             // Keys still need proxying for CORS
-            return `URI="/api/proxy?url=${encodeURIComponent(abs)}"`;
+            return `URI="/api/proxy?url=${encodeURIComponent(abs)}${segSuffix}"`;
           });
         }
 
@@ -99,10 +104,13 @@ export async function GET(request: NextRequest) {
 
         if (isM3uUrl(abs)) {
           // Sub-playlist → still proxy so we can rewrite it
-          return `${indent}/api/proxy?url=${encodeURIComponent(abs)}`;
+          return `${indent}/api/proxy?url=${encodeURIComponent(abs)}${segSuffix}`;
         }
 
-        // Segment → return DIRECT absolute URL, no proxy
+        // Segment → DIRECT by default; proxied when the channel opts in via seg=1
+        if (proxySegs) {
+          return `${indent}/api/proxy?url=${encodeURIComponent(abs)}&seg=1`;
+        }
         return `${indent}${abs}`;
       }).join('\n');
 
@@ -116,14 +124,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ── Non-M3U8: proxy the request (small files like keys, etc.) ──
-    // Avoid proxying large binary streams — only small ancillary files should reach here.
+    // ── Non-M3U8: keys, and media segments when seg=1 ──
+    // Stream the body through instead of buffering so multi-MB TS segments
+    // don't sit in Worker memory.
     const response = await fetch(decodedUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': '*/*',
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(proxySegs ? 25000 : 10000),
     });
 
     if (!response.ok) {
@@ -134,9 +143,8 @@ export async function GET(request: NextRequest) {
     }
 
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
-    const buffer = await response.arrayBuffer();
 
-    return new NextResponse(buffer, {
+    return new NextResponse(response.body, {
       status: 200,
       headers: {
         'Content-Type': contentType,

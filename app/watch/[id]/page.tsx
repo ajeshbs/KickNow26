@@ -3,7 +3,7 @@ import Navigation from '@/components/Navigation';
 import WatchClient from './WatchClient';
 import { findMatch } from '@/lib/football-data';
 import { COMPETITION_CODES } from '@/lib/competitions';
-import { resolveChannels } from '@/lib/mapping';
+import { getChannels, channelsForCompetition } from '@/lib/channels';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,13 +15,14 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   const match = await findMatch(matchId, COMPETITION_CODES);
   if (!match) notFound();
 
-  const resolved = await resolveChannels(match.competition).catch(() => []);
+  const all = await getChannels().catch(() => []);
+  const channels = channelsForCompetition(all, match.competition);
 
   return (
     <>
       <Navigation />
       <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
-        <WatchClient match={match} resolved={resolved} />
+        <WatchClient match={match} channels={channels} />
       </main>
     </>
   );

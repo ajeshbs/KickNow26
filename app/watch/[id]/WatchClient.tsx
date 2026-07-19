@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Channel, FdMatch } from '@/types';
-import type { ResolvedChannel } from '@/lib/mapping';
+import type { FdMatch, StoredChannel } from '@/types';
 import VideoPlayer from '@/components/VideoPlayer';
 import ChannelSelector from '@/components/ChannelSelector';
 import { isLive } from '@/lib/competitions';
@@ -10,13 +9,12 @@ import { formatKickoffDateTime } from '@/lib/local-time';
 
 export default function WatchClient({
   match,
-  resolved,
+  channels,
 }: {
   match: FdMatch;
-  resolved: ResolvedChannel[];
+  channels: StoredChannel[];
 }) {
-  const first = resolved.find((rc) => rc.channel)?.channel ?? null;
-  const [channel, setChannel] = useState<Channel | null>(first);
+  const [channel, setChannel] = useState<StoredChannel | null>(channels[0] ?? null);
 
   const live = isLive(match.status);
 
@@ -43,7 +41,12 @@ export default function WatchClient({
 
       <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-white/60">Channels</h2>
-        <ChannelSelector resolved={resolved} current={channel} onSelect={setChannel} />
+        <ChannelSelector
+          channels={channels}
+          compCode={match.competition}
+          current={channel}
+          onSelect={setChannel}
+        />
       </section>
     </>
   );

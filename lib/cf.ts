@@ -3,7 +3,6 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 export interface CfEnv {
   KICKNOW_KV: KVNamespace;
   FOOTBALL_DATA_TOKEN?: string;
-  IPTV_M3U_URL?: string;
   TOTP_SECRET?: string;
   AUTH_SECRET?: string;
   MAINTENANCE_MODE?: string;

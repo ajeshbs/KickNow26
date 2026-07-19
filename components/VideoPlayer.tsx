@@ -2,14 +2,14 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react';
 import Hls from 'hls.js';
-import type { Channel } from '@/types';
+import type { StoredChannel } from '@/types';
 
 type PlayerState = 'loading' | 'playing' | 'reconnecting' | 'error';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
 
-export default function VideoPlayer({ channel }: { channel: Channel | null }) {
+export default function VideoPlayer({ channel }: { channel: StoredChannel | null }) {
   if (!channel) {
     return (
       <div className="flex aspect-video items-center justify-center rounded-2xl border border-white/10 bg-black/60">
@@ -21,7 +21,7 @@ export default function VideoPlayer({ channel }: { channel: Channel | null }) {
   return <Player key={channel.url} channel={channel} />;
 }
 
-function Player({ channel }: { channel: Channel }) {
+function Player({ channel }: { channel: StoredChannel }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -32,7 +32,7 @@ function Player({ channel }: { channel: Channel }) {
   const [retryCount, setRetryCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const streamUrl = `/api/proxy?url=${encodeURIComponent(channel.url)}`;
+  const streamUrl = `/api/proxy?url=${encodeURIComponent(channel.url)}${channel.proxySegments ? '&seg=1' : ''}`;
 
   const cleanup = useCallback(() => {
     if (timeoutRef.current) {

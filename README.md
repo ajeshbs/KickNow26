@@ -6,8 +6,8 @@ A single-user, TOTP-protected football streaming dashboard built with Next.js 16
 
 - **Real Madrid hero** — the live or next Madrid match front and center with a Watch CTA; a dedicated `/madrid` page lists every fixture/result across all competitions (team 86 on football-data.org).
 - **Six leagues** — fixtures, results, standings (CL rendered per group), and top scorers per competition at `/league/[code]` (PD, PL, BL1, SA, FL1, CL).
-- **Live streaming** — hls.js player with auto-retry, fed by your personal IPTV M3U playlist. Playlists are proxied through `/api/proxy` (URL rewriting, redirect resolution); media segments go direct to the CDN to avoid Worker timeouts.
-- **Channel mapping admin** — `/settings` lets you search your playlist and pin channels to each competition with a broadcaster-country label (e.g. La Liga → DAZN ES, ESPN US). Stored in Cloudflare KV; pins survive provider URL/token rotation via name-based channel ids.
+- **Live streaming** — hls.js player with auto-retry, fed by hand-picked IPTV channel URLs. Playlists are proxied through `/api/proxy` (URL rewriting, redirect resolution); media segments go direct to the CDN by default to avoid Worker timeouts, with a per-channel "proxy segments" fallback for streams that fail direct (IP-bound tokens, CORS, http-only segments).
+- **Channel admin** — `/settings` stores a small list of channels (name, country, stream URL, competitions) in Cloudflare KV (`channels:v1`). The watch page groups them by country with the competition's domestic country first, so every match has the home feed plus backups from ES/UK/DE/FR/IT/US.
 - **TOTP auth** — 6-digit authenticator-app login with "remember me for 90 days" (HMAC-signed session cookie), 5-attempt/15-min brute-force lockout, and one-time-use codes (replay rejection). The auth gate covers everything, including the stream proxy.
 - **Anti-discovery** — `robots.txt` disallow-all, `X-Robots-Tag: noindex` on every response, and deliberately generic page metadata.
 
@@ -33,10 +33,9 @@ Match data comes from the [football-data.org](https://www.football-data.org/) v4
    npx wrangler secret put TOTP_SECRET
    npx wrangler secret put AUTH_SECRET
    npx wrangler secret put FOOTBALL_DATA_TOKEN   # free key from football-data.org
-   npx wrangler secret put IPTV_M3U_URL          # your provider's playlist URL
    ```
 
-2. **Local dev** — mirror the four secrets in `.dev.vars` (gitignored), then:
+2. **Local dev** — mirror the three secrets in `.dev.vars` (gitignored), then:
 
    ```bash
    npm run dev       # Next dev with emulated KV + .dev.vars
@@ -51,4 +50,4 @@ Match data comes from the [football-data.org](https://www.football-data.org/) v4
 
    Or push to the connected Git branch and let Cloudflare CI build it (`scripts/build.js` / `scripts/build-worker.js` handle OpenNext's recursive-build quirks — don't remove them).
 
-4. First visit: enter a code from your authenticator, then open **Settings** and pin channels to each competition.
+4. First visit: enter a code from your authenticator, then open **Settings** and add your IPTV stream URLs — one per channel, tagged with country + competitions. The watch page lists the domestic country's channel first with the other countries as backups. Enable "Proxy segments" per channel only if a stream fails to play directly.

@@ -1,16 +1,11 @@
-export interface Channel {
-  name: string;
-  url: string;
-  logo: string;
-  group: string;
-}
-
-/** Channel as exposed to the settings UI — no stream URL. */
-export interface ChannelInfo {
+/** One hand-picked IPTV channel, stored in KV under channels:v1. */
+export interface StoredChannel {
   id: string;
-  name: string;
-  logo: string;
-  group: string;
+  name: string; // e.g. "beIN Sports 1 FR"
+  country: string; // ES | UK | US | DE | FR | IT | OTHER
+  url: string; // direct stream URL (usually .m3u8)
+  competitions: string[]; // competition codes this channel carries
+  proxySegments?: boolean; // route media segments through the Worker (token/CORS workaround)
 }
 
 export type MatchStatus =
@@ -68,16 +63,4 @@ export interface FdScorer {
   goals: number;
   assists: number | null;
   penalties: number | null;
-}
-
-/** One pinned channel inside the competition→channels mapping. */
-export interface MappedChannel {
-  id: string; // stable channel id (hash of name|group)
-  name: string; // snapshot for display + fuzzy fallback
-  label: string; // owner-entered broadcaster/country tag, e.g. "Spain"
-}
-
-export interface ChannelMapping {
-  updatedAt: number;
-  competitions: Record<string, MappedChannel[]>;
 }
