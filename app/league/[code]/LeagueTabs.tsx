@@ -1,40 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import FixtureList from '@/components/FixtureList';
 import StandingsTable from '@/components/StandingsTable';
 import ScorersList from '@/components/ScorersList';
-import { isLive, isUpcoming } from '@/lib/competitions';
-import type { FdMatch, FdScorer, FdStanding } from '@/types';
+import type { FdScorer, FdStanding } from '@/types';
 
-type Tab = 'fixtures' | 'results' | 'standings' | 'scorers';
+type Tab = 'standings' | 'scorers';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'fixtures', label: 'Fixtures' },
-  { id: 'results', label: 'Results' },
   { id: 'standings', label: 'Standings' },
   { id: 'scorers', label: 'Scorers' },
 ];
 
 export default function LeagueTabs({
-  matches,
   standings,
   scorers,
 }: {
-  matches: FdMatch[];
   standings: FdStanding[];
   scorers: FdScorer[];
 }) {
-  const [tab, setTab] = useState<Tab>('fixtures');
-
-  const fixtures = matches
-    .filter((m) => isUpcoming(m.status) || isLive(m.status))
-    .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
-    .slice(0, 30);
-  const results = matches
-    .filter((m) => m.status === 'FINISHED')
-    .sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime())
-    .slice(0, 30);
+  const [tab, setTab] = useState<Tab>('standings');
 
   return (
     <div>
@@ -52,8 +37,6 @@ export default function LeagueTabs({
         ))}
       </div>
 
-      {tab === 'fixtures' && <FixtureList matches={fixtures} />}
-      {tab === 'results' && <FixtureList matches={results} />}
       {tab === 'standings' && <StandingsTable standings={standings} />}
       {tab === 'scorers' && <ScorersList scorers={scorers} />}
     </div>

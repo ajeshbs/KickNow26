@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 import LeagueTabs from './LeagueTabs';
 import { getCompetition } from '@/lib/competitions';
-import { getCompMatches, getScorers, getStandings } from '@/lib/football-data';
-import type { FdMatch, FdScorer, FdStanding } from '@/types';
+import { getScorers, getStandings } from '@/lib/football-data';
+import type { FdScorer, FdStanding } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +12,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ code: s
   const comp = getCompetition(code);
   if (!comp) notFound();
 
-  const [matches, standings, scorers] = await Promise.all([
-    getCompMatches(comp.code).catch(() => [] as FdMatch[]),
+  const [standings, scorers] = await Promise.all([
     getStandings(comp.code).catch(() => [] as FdStanding[]),
     getScorers(comp.code).catch(() => [] as FdScorer[]),
   ]);
@@ -29,7 +28,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ code: s
           )}
           {comp.name}
         </h1>
-        <LeagueTabs matches={matches} standings={standings} scorers={scorers} />
+        <LeagueTabs standings={standings} scorers={scorers} />
       </main>
     </>
   );
