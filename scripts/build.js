@@ -1,5 +1,9 @@
 const { execSync } = require('child_process');
 
+// Step 0: Generate worker-configuration.d.ts (gitignored) so KVNamespace etc.
+// exist for the type check on CI.
+execSync('wrangler types', { stdio: 'inherit' });
+
 // Step 1: Always run Next.js build
 execSync('next build', { stdio: 'inherit' });
 
