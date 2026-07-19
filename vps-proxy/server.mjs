@@ -22,6 +22,8 @@ import { join } from 'node:path';
 const PORT = Number(process.env.PORT ?? 8788);
 const TOKEN = process.env.TOKEN;
 const QUALITY = process.env.QUALITY === '720' ? '720' : '1080';
+// x264 speed/quality trade-off: superfast ≈ 30% less CPU than veryfast.
+const PRESET = process.env.PRESET || 'veryfast';
 if (!TOKEN) {
   console.error('Refusing to start: set the TOKEN env var (long random string).');
   process.exit(1);
@@ -195,9 +197,9 @@ function ensureJob(src) {
     '-vf', vf,
     // vfr avoids mass frame duplication when source timestamps are messy
     '-fps_mode', 'vfr',
-    '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', vbit, '-maxrate', vbit, '-bufsize', '10M',
+    '-c:v', 'libx264', '-preset', PRESET, '-b:v', vbit, '-maxrate', vbit, '-bufsize', '10M',
     '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
-    '-f', 'hls', '-hls_time', '4', '-hls_list_size', '6',
+    '-f', 'hls', '-hls_time', '4', '-hls_list_size', '8',
     '-hls_flags', 'delete_segments+independent_segments',
     join(dir, 'index.m3u8'),
   ];
