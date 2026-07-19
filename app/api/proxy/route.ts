@@ -7,27 +7,6 @@ function isM3uUrl(url: string): boolean {
   return path.endsWith('.m3u8') || path.endsWith('.m3u');
 }
 
-async function resolveRedirect(url: string): Promise<string> {
-  try {
-    const res = await fetch(url, {
-      method: 'HEAD',
-      redirect: 'manual',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': '*/*',
-      },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get('location');
-      if (location) {
-        try { return new URL(location, url).href; } catch { return location; }
-      }
-    }
-  } catch {}
-  return url;
-}
-
 export async function OPTIONS() {
   const h = new Headers();
   h.set('Access-Control-Allow-Origin', '*');
@@ -41,6 +20,12 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': '*',
+};
+
+const FETCH_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+  'Accept': '*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
 };
 
 export async function GET(request: NextRequest) {
@@ -57,97 +42,80 @@ export async function GET(request: NextRequest) {
   try {
     const decodedUrl = decodeURIComponent(urlParam);
 
-    // ── M3U8 playlist: fetch + rewrite segment URLs to be DIRECT (not proxied) ──
-    // Segments are binary TS chunks that would time out a Worker. Let hls.js
-    // fetch them directly from the stream server; only the playlist needs proxying.
-    if (isM3uUrl(decodedUrl)) {
-      const finalUrl = await resolveRedirect(decodedUrl);
+    const response = await fetch(decodedUrl, {
+      headers: FETCH_HEADERS,
+      signal: AbortSignal.timeout(proxySegs ? 25000 : 15000),
+    });
 
-      const response = await fetch(finalUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': '*/*',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        signal: AbortSignal.timeout(15000),
-      });
+    if (!response.ok) {
+      response.body?.cancel();
+      return NextResponse.json(
+        { error: `Upstream fetch failed: ${response.status}` },
+        { status: response.status },
+      );
+    }
 
-      if (!response.ok) {
-        return NextResponse.json(
-          { error: `Playlist fetch failed: ${response.status}` },
-          { status: response.status }
-        );
-      }
+    // Redirects were followed — response.url is the final URL, the base for
+    // resolving relative playlist entries.
+    const finalUrl = response.url || decodedUrl;
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
 
+    // ── Is this an HLS playlist? ──
+    // IPTV URLs often have no extension (Xtream style), so decide from the URL
+    // *or* the response: mpegurl content-type, or a textual body starting #EXTM3U.
+    const textual =
+      contentType.includes('mpegurl') ||
+      contentType.includes('text/plain') ||
+      contentType.includes('text/html') ||
+      contentType.includes('audio/x-mpegurl');
+
+    if (isM3uUrl(decodedUrl) || isM3uUrl(finalUrl) || textual) {
       const text = await response.text();
-      const baseUrl = finalUrl;
-
-      // Rewrite relative URLs in the playlist to absolute direct URLs.
-      // Sub-playlists (variant .m3u8) still go through the proxy so we can rewrite them too.
-      // Segments (.ts / .aac / etc.) go DIRECT to avoid Worker timeout.
-      const rewritten = text.split('\n').map((line) => {
-        const trimmed = line.trim();
-        if (trimmed === '' || trimmed.startsWith('#EXT')) {
-          // Rewrite URI="..." inside tags (e.g. #EXT-X-KEY)
-          return trimmed.replace(/URI="([^"]+)"/g, (_, uri) => {
-            const abs = toAbsolute(uri, baseUrl);
-            // Keys still need proxying for CORS
-            return `URI="/api/proxy?url=${encodeURIComponent(abs)}${segSuffix}"`;
-          });
-        }
-
-        if (trimmed.startsWith('#')) return line;
-
-        // It's a segment or sub-playlist URL
-        const abs = toAbsolute(trimmed, baseUrl);
-        const indent = line.match(/^\s*/)?.[0] || '';
-
-        if (isM3uUrl(abs)) {
-          // Sub-playlist → still proxy so we can rewrite it
-          return `${indent}/api/proxy?url=${encodeURIComponent(abs)}${segSuffix}`;
-        }
-
-        // Segment → DIRECT by default; proxied when the channel opts in via seg=1
-        if (proxySegs) {
-          return `${indent}/api/proxy?url=${encodeURIComponent(abs)}&seg=1`;
-        }
-        return `${indent}${abs}`;
-      }).join('\n');
-
-      return new NextResponse(rewritten, {
+      if (text.trimStart().startsWith('#EXTM3U')) {
+        return playlistResponse(rewritePlaylist(text, finalUrl, proxySegs, segSuffix));
+      }
+      // Textual but not a playlist (error page, key served as text, …) — pass through.
+      return new NextResponse(text, {
         status: 200,
         headers: {
-          'Content-Type': 'application/vnd.apple.mpegurl',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Content-Type': contentType || 'text/plain',
+          'Cache-Control': 'no-cache',
           ...CORS_HEADERS,
         },
       });
     }
 
-    // ── Non-M3U8: keys, and media segments when seg=1 ──
-    // Stream the body through instead of buffering so multi-MB TS segments
-    // don't sit in Worker memory.
-    const response = await fetch(decodedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': '*/*',
-      },
-      signal: AbortSignal.timeout(proxySegs ? 25000 : 10000),
-    });
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `Fetch failed: ${response.status}` },
-        { status: response.status }
-      );
+    // ── Binary: media segments (seg=1) and small files like AES keys ──
+    // Never pipe an endless live stream through the Worker — a raw continuous
+    // .ts feed would blow the Worker's resource limits (error 1102). Segments
+    // requested via seg=1 are finite and expected; anything else that looks
+    // like open-ended video gets a clear error instead of a crash.
+    if (!proxySegs) {
+      const len = Number(response.headers.get('content-length') ?? NaN);
+      const looksEndless =
+        contentType.includes('mp2t') ||
+        contentType.startsWith('video/') ||
+        !Number.isFinite(len) ||
+        len > 20_000_000;
+      if (looksEndless) {
+        response.body?.cancel();
+        return NextResponse.json(
+          {
+            error:
+              'This URL serves a continuous video stream, not an HLS playlist. ' +
+              'Use the .m3u8 form of the channel link (e.g. replace a trailing ".ts" with ".m3u8").',
+          },
+          { status: 415 },
+        );
+      }
     }
 
-    const contentType = response.headers.get('content-type') || 'application/octet-stream';
-
+    // Stream the body through instead of buffering so multi-MB TS segments
+    // don't sit in Worker memory.
     return new NextResponse(response.body, {
       status: 200,
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': contentType || 'application/octet-stream',
         'Cache-Control': 'no-cache',
         ...CORS_HEADERS,
       },
@@ -155,9 +123,65 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: 'Proxy error', details: String(error) },
-      { status: 500 }
+      { status: 500 },
     );
   }
+}
+
+/**
+ * Rewrite playlist URLs: sub-playlists + keys stay proxied (so they can be
+ * rewritten / get CORS); media segments go DIRECT unless seg=1.
+ */
+function rewritePlaylist(
+  text: string,
+  baseUrl: string,
+  proxySegs: boolean,
+  segSuffix: string,
+): string {
+  return text
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim();
+      if (trimmed === '' || trimmed.startsWith('#EXT')) {
+        // Rewrite URI="..." inside tags (e.g. #EXT-X-KEY)
+        return trimmed.replace(/URI="([^"]+)"/g, (_, uri) => {
+          const abs = toAbsolute(uri, baseUrl);
+          // Keys still need proxying for CORS
+          return `URI="/api/proxy?url=${encodeURIComponent(abs)}${segSuffix}"`;
+        });
+      }
+
+      if (trimmed.startsWith('#')) return line;
+
+      // It's a segment or sub-playlist URL
+      const abs = toAbsolute(trimmed, baseUrl);
+      const indent = line.match(/^\s*/)?.[0] || '';
+
+      if (isM3uUrl(abs)) {
+        // Sub-playlist → still proxy so we can rewrite it
+        return `${indent}/api/proxy?url=${encodeURIComponent(abs)}${segSuffix}`;
+      }
+
+      // Segment → DIRECT by default; proxied when the channel opts in via seg=1.
+      // http:// segments are always proxied — the browser would block them as
+      // mixed content on our https page, so direct can never work.
+      if (proxySegs || abs.startsWith('http://')) {
+        return `${indent}/api/proxy?url=${encodeURIComponent(abs)}&seg=1`;
+      }
+      return `${indent}${abs}`;
+    })
+    .join('\n');
+}
+
+function playlistResponse(body: string): NextResponse {
+  return new NextResponse(body, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/vnd.apple.mpegurl',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      ...CORS_HEADERS,
+    },
+  });
 }
 
 function toAbsolute(url: string, base: string): string {

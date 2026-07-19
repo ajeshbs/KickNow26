@@ -152,6 +152,12 @@ export default function SettingsClient() {
               ch.url.trim() ? 'border-white/10' : 'border-dashed border-white/20'
             }`}
           />
+          {/\.ts(\?|$)/i.test(ch.url.trim()) && (
+            <p className="mt-1 text-xs text-amber-400/90">
+              This is a raw .ts stream — replace &quot;.ts&quot; with &quot;.m3u8&quot; so it
+              plays as HLS (most IPTV providers serve both).
+            </p>
+          )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {COMPETITIONS.map((comp) => {

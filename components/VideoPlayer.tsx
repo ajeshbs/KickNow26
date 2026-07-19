@@ -59,7 +59,9 @@ function Player({ channel }: { channel: StoredChannel }) {
     if (!video) return;
 
     const url = streamUrl;
-    const isHls = url.includes('.m3u8') || url.includes('.m3u');
+    // IPTV links often have no extension (Xtream style) but still serve HLS via
+    // the proxy — default to HLS unless it's clearly a plain video file.
+    const isHls = !/\.(mp4|webm|mkv|mov)(\?|$)/i.test(channel.url);
 
     const retry = () => {
       retriesRef.current++;
