@@ -12,9 +12,12 @@ const RETRY_DELAY = 2000;
 export default function VideoPlayer({
   channel,
   proxy,
+  reloadKey = 0,
 }: {
   channel: StoredChannel | null;
   proxy?: StreamProxy | null;
+  /** Bump to force a full player restart for the same channel. */
+  reloadKey?: number;
 }) {
   if (!channel) {
     return (
@@ -24,7 +27,7 @@ export default function VideoPlayer({
     );
   }
   // key remounts the player (resetting all state) whenever the channel changes
-  return <Player key={channel.url} channel={channel} proxy={proxy ?? null} />;
+  return <Player key={`${channel.id}#${reloadKey}`} channel={channel} proxy={proxy ?? null} />;
 }
 
 function Player({ channel, proxy }: { channel: StoredChannel; proxy: StreamProxy | null }) {
@@ -161,8 +164,11 @@ function Player({ channel, proxy }: { channel: StoredChannel; proxy: StreamProxy
             <div className="flex flex-col items-center gap-3">
               <div className="h-10 w-10 animate-spin rounded-full border-2 border-gold-400/30 border-t-gold-400" />
               <span className="text-sm text-white/40">
-                {state === 'reconnecting' ? 'Reconnecting…' : 'Loading stream…'}
+                {state === 'reconnecting' ? `Reconnecting ${channel.name}…` : `Loading ${channel.name}…`}
               </span>
+              {state === 'loading' && channel.restream && (
+                <span className="text-xs text-white/25">starting encoder — takes ~10s</span>
+              )}
               {state === 'reconnecting' && (
                 <span className="text-xs text-white/20">Retry {retryCount}/{MAX_RETRIES}</span>
               )}

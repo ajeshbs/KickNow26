@@ -17,6 +17,13 @@ export default function WatchClient({
   proxy: StreamProxy | null;
 }) {
   const [channel, setChannel] = useState<StoredChannel | null>(channels[0] ?? null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  function selectChannel(ch: StoredChannel) {
+    // Clicking the active channel restarts it instead of doing nothing.
+    if (ch.id === channel?.id) setReloadKey((k) => k + 1);
+    else setChannel(ch);
+  }
 
   const live = isLive(match.status);
 
@@ -39,7 +46,7 @@ export default function WatchClient({
         )}
       </header>
 
-      <VideoPlayer channel={channel} proxy={proxy} />
+      <VideoPlayer channel={channel} proxy={proxy} reloadKey={reloadKey} />
 
       <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-white/60">Channels</h2>
@@ -47,7 +54,7 @@ export default function WatchClient({
           channels={channels}
           compCode={match.competition}
           current={channel}
-          onSelect={setChannel}
+          onSelect={selectChannel}
         />
       </section>
     </>
