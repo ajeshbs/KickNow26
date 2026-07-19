@@ -194,7 +194,30 @@ function Player({ channel }: { channel: StoredChannel }) {
       </div>
       <div className="flex items-center gap-2 border-t border-white/10 bg-navy-950 px-4 py-2">
         <span className="h-1.5 w-1.5 rounded-full bg-gold-400" />
-        <span className="truncate text-xs text-white/60">{channel.name}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-white/60">{channel.name}</span>
+        <button
+          onClick={() => navigator.clipboard.writeText(channel.url).catch(() => {})}
+          className="shrink-0 rounded-md border border-white/10 px-2 py-1 text-xs text-white/50 transition-colors hover:text-white"
+          title="Copy the direct stream URL (paste into VLC: Media → Open Network Stream)"
+        >
+          Copy link
+        </button>
+        <button
+          onClick={() => {
+            // .m3u download — opening it launches VLC (or the default player),
+            // which streams DIRECT from this device: full quality, no Worker.
+            const m3u = `#EXTM3U\n#EXTINF:-1,${channel.name}\n${channel.url}\n`;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([m3u], { type: 'audio/x-mpegurl' }));
+            a.download = `${channel.name.replace(/[^\w ()-]+/g, '_')}.m3u`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+          }}
+          className="shrink-0 rounded-md border border-gold-400/40 px-2 py-1 text-xs font-semibold text-gold-300 transition-colors hover:bg-gold-400/10"
+          title="Download a one-channel .m3u — open it in VLC for full quality without the proxy"
+        >
+          Open in VLC
+        </button>
       </div>
     </div>
   );
