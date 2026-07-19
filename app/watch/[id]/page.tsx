@@ -3,7 +3,7 @@ import Navigation from '@/components/Navigation';
 import WatchClient from './WatchClient';
 import { findMatch } from '@/lib/football-data';
 import { COMPETITION_CODES } from '@/lib/competitions';
-import { getChannels, channelsForCompetition } from '@/lib/channels';
+import { getChannels, channelsForCompetition, activeChannels } from '@/lib/channels';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,9 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   if (!match) notFound();
 
   const all = await getChannels().catch(() => []);
-  const channels = channelsForCompetition(all, match.competition);
+  // Cup/CWC matches have no tagged channels — fall back to every active channel.
+  const tagged = channelsForCompetition(all, match.competition);
+  const channels = tagged.length > 0 ? tagged : activeChannels(all);
 
   return (
     <>

@@ -18,8 +18,8 @@ export default function Navigation() {
 
   const links = [
     { href: '/', label: 'Home' },
-    { href: '/madrid', label: 'Madrid' },
     ...COMPETITIONS.map((c) => ({ href: `/league/${c.code}`, label: c.shortName })),
+    { href: '/tv', label: 'RM TV' },
   ];
 
   return (

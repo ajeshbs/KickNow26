@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { COMPETITIONS } from '@/lib/competitions';
+import { CHANNEL_TAGS } from '@/lib/competitions';
 import { COUNTRIES } from '@/lib/countries';
 import { SUGGESTED_CHANNELS } from '@/lib/presets';
 import type { StoredChannel } from '@/types';
@@ -160,16 +160,16 @@ export default function SettingsClient() {
           )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {COMPETITIONS.map((comp) => {
-              const on = ch.competitions.includes(comp.code);
+            {CHANNEL_TAGS.map((tag) => {
+              const on = ch.competitions.includes(tag.code);
               return (
                 <button
-                  key={comp.code}
+                  key={tag.code}
                   onClick={() =>
                     update(ch.id, {
                       competitions: on
-                        ? ch.competitions.filter((c) => c !== comp.code)
-                        : [...ch.competitions, comp.code],
+                        ? ch.competitions.filter((c) => c !== tag.code)
+                        : [...ch.competitions, tag.code],
                     })
                   }
                   className={`rounded-full border px-3 py-1 text-xs transition-colors ${
@@ -178,7 +178,7 @@ export default function SettingsClient() {
                       : 'border-white/10 text-white/50 hover:border-white/30'
                   }`}
                 >
-                  {comp.shortName}
+                  {tag.label}
                 </button>
               );
             })}

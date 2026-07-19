@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getChannels, saveChannels } from '@/lib/channels';
 import { COUNTRY_CODES } from '@/lib/countries';
-import { COMPETITION_CODES } from '@/lib/competitions';
+import { CHANNEL_TAG_CODES } from '@/lib/competitions';
 import type { StoredChannel } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -43,7 +43,7 @@ export async function PUT(request: NextRequest) {
       url,
       competitions: Array.isArray(ch.competitions)
         ? ch.competitions.filter(
-            (c): c is string => typeof c === 'string' && COMPETITION_CODES.includes(c),
+            (c): c is string => typeof c === 'string' && CHANNEL_TAG_CODES.includes(c),
           )
         : [],
       proxySegments: Boolean(ch.proxySegments),
