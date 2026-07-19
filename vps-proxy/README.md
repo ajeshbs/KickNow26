@@ -44,6 +44,15 @@ WantedBy=multi-user.target
 sudo systemctl enable --now kicknow-proxy
 ```
 
+## Restream / deinterlace mode (optional)
+
+Install ffmpeg (`apt install ffmpeg`) and restart the service. Channels with
+the **Deinterlace** checkbox enabled in /settings are then re-encoded on the
+VPS on demand: interlaced (1080i) feeds come out as clean progressive HLS —
+no more combing/wobbly lines. ffmpeg starts when you press play and stops
+~90s after you stop watching. `QUALITY=720` in the service environment
+halves the CPU cost if 1080p encoding struggles.
+
 ## Connect the site
 
 Open **Settings → Streaming proxy** and enter:

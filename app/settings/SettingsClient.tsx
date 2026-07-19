@@ -261,6 +261,21 @@ export default function SettingsClient() {
             <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-white/50">
               <input
                 type="checkbox"
+                checked={Boolean(ch.restream)}
+                onChange={(e) => update(ch.id, { restream: e.target.checked })}
+                className="accent-gold-400"
+              />
+              Deinterlace
+              <span
+                className="cursor-help text-white/30"
+                title="Re-encode on the VPS (ffmpeg): fixes wobbly/combed lines on interlaced feeds and produces smooth progressive HLS. Needs the streaming proxy configured + ffmpeg installed. Uses VPS CPU while watching."
+              >
+                ⓘ
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-white/50">
+              <input
+                type="checkbox"
                 checked={Boolean(ch.proxySegments)}
                 onChange={(e) => update(ch.id, { proxySegments: e.target.checked })}
                 className="accent-gold-400"

@@ -47,6 +47,7 @@ export async function PUT(request: NextRequest) {
           )
         : [],
       proxySegments: Boolean(ch.proxySegments),
+      restream: Boolean(ch.restream),
     });
   }
 

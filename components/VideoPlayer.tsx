@@ -40,7 +40,9 @@ function Player({ channel, proxy }: { channel: StoredChannel; proxy: StreamProxy
 
   const segParam = channel.proxySegments ? '&seg=1' : '';
   const streamUrl = proxy?.url
-    ? `${proxy.url}/p?url=${encodeURIComponent(channel.url)}${segParam}&t=${encodeURIComponent(proxy.token)}`
+    ? channel.restream
+      ? `${proxy.url}/r?url=${encodeURIComponent(channel.url)}&t=${encodeURIComponent(proxy.token)}`
+      : `${proxy.url}/p?url=${encodeURIComponent(channel.url)}${segParam}&t=${encodeURIComponent(proxy.token)}`
     : `/api/proxy?url=${encodeURIComponent(channel.url)}${segParam}`;
 
   const cleanup = useCallback(() => {
@@ -106,6 +108,8 @@ function Player({ channel, proxy }: { channel: StoredChannel; proxy: StreamProxy
         maxBufferHole: 0.5,
         nudgeOffset: 0.3,
         nudgeMaxRetry: 5,
+        // VPS restream holds the first manifest request while ffmpeg warms up
+        manifestLoadingTimeOut: 30000,
         abrEwmaDefaultEstimate: 2000000,
         abrBandWidthFactor: 0.9,
         abrBandWidthUpFactor: 0.95,

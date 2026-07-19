@@ -12,6 +12,7 @@ export interface StoredChannel {
   url: string; // direct stream URL (usually .m3u8)
   competitions: string[]; // competition codes this channel carries
   proxySegments?: boolean; // route media segments through the Worker (token/CORS workaround)
+  restream?: boolean; // VPS ffmpeg re-encode: deinterlace + clean HLS (needs stream proxy)
 }
 
 export type MatchStatus =
