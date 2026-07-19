@@ -42,10 +42,23 @@ export async function GET(request: NextRequest) {
   try {
     const decodedUrl = decodeURIComponent(urlParam);
 
-    const response = await fetch(decodedUrl, {
+    let response = await fetch(decodedUrl, {
       headers: FETCH_HEADERS,
       signal: AbortSignal.timeout(proxySegs ? 25000 : 15000),
     });
+
+    // Xtream servers often only serve HLS under /live/user/pass/id.m3u8 while
+    // the pasted link lacks the /live/ prefix — retry with it inserted.
+    if (!response.ok && isM3uUrl(decodedUrl)) {
+      const alt = withLivePrefix(decodedUrl);
+      if (alt) {
+        response.body?.cancel();
+        response = await fetch(alt, {
+          headers: FETCH_HEADERS,
+          signal: AbortSignal.timeout(15000),
+        });
+      }
+    }
 
     if (!response.ok) {
       response.body?.cancel();
@@ -182,6 +195,18 @@ function playlistResponse(body: string): NextResponse {
       ...CORS_HEADERS,
     },
   });
+}
+
+/** host/user/pass/id.m3u8 → host/live/user/pass/id.m3u8 (null if not that shape). */
+function withLivePrefix(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (/^\/[^/]+\/[^/]+\/[^/]+\.m3u8?$/i.test(u.pathname) && !u.pathname.startsWith('/live/')) {
+      u.pathname = '/live' + u.pathname;
+      return u.href;
+    }
+  } catch {}
+  return null;
 }
 
 function toAbsolute(url: string, base: string): string {
