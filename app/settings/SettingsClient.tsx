@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { COMPETITIONS } from '@/lib/competitions';
 import { COUNTRIES } from '@/lib/countries';
+import { SUGGESTED_CHANNELS } from '@/lib/presets';
 import type { StoredChannel } from '@/types';
 
 function newChannel(): StoredChannel {
@@ -47,6 +48,30 @@ export default function SettingsClient() {
     setSavedAt(null);
   }
 
+  function loadPresets() {
+    if (!channels) return;
+    const have = new Set(channels.map((c) => c.name.trim().toLowerCase()));
+    const missing = SUGGESTED_CHANNELS.filter((p) => !have.has(p.name.toLowerCase())).map(
+      (p) => ({
+        id: crypto.randomUUID(),
+        name: p.name,
+        country: p.country,
+        url: '',
+        competitions: [...p.competitions],
+        proxySegments: false,
+      }),
+    );
+    if (missing.length === 0) return;
+    setChannels([...channels, ...missing]);
+    setSavedAt(null);
+  }
+
+  const presetsLeft = channels
+    ? SUGGESTED_CHANNELS.filter(
+        (p) => !channels.some((c) => c.name.trim().toLowerCase() === p.name.toLowerCase()),
+      ).length
+    : 0;
+
   async function save() {
     if (!channels || saving) return;
     setSaving(true);
@@ -71,10 +96,20 @@ export default function SettingsClient() {
 
   return (
     <div className="flex flex-col gap-4">
-      {channels.length === 0 && (
-        <p className="rounded-2xl border border-white/10 bg-navy-900 p-6 text-center text-sm text-white/50">
-          No channels yet. Add your first stream below.
-        </p>
+      {presetsLeft > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold-400/20 bg-gold-400/5 p-4">
+          <p className="text-sm text-white/60">
+            Load the {presetsLeft} suggested broadcaster channels (ES · UK · DE · FR · IT · US,
+            2025-26 rights holders) — then just paste your provider&apos;s link into each one
+            you have. Channels without a link are ignored on the watch page.
+          </p>
+          <button
+            onClick={loadPresets}
+            className="rounded-lg border border-gold-400/60 px-4 py-2 text-sm font-semibold text-gold-300 transition-colors hover:bg-gold-400/10"
+          >
+            Load suggested channels
+          </button>
+        </div>
       )}
 
       {channels.map((ch) => (
@@ -111,9 +146,11 @@ export default function SettingsClient() {
           <input
             value={ch.url}
             onChange={(e) => update(ch.id, { url: e.target.value })}
-            placeholder="Stream URL (https://…/stream.m3u8)"
+            placeholder="Paste stream URL (https://…/stream.m3u8) — empty = inactive"
             spellCheck={false}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-navy-950 px-3 py-2 font-mono text-xs text-white/80 outline-none focus:border-gold-400/60"
+            className={`mt-2 w-full rounded-lg border bg-navy-950 px-3 py-2 font-mono text-xs text-white/80 outline-none focus:border-gold-400/60 ${
+              ch.url.trim() ? 'border-white/10' : 'border-dashed border-white/20'
+            }`}
           />
 
           <div className="mt-3 flex flex-wrap items-center gap-2">

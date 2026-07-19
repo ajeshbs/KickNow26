@@ -36,6 +36,6 @@ export function channelsForCompetition(
     return i === -1 ? COUNTRY_CODES.length : i;
   };
   return channels
-    .filter((c) => c.competitions.includes(compCode))
+    .filter((c) => c.url && c.competitions.includes(compCode))
     .sort((a, b) => rank(a) - rank(b));
 }

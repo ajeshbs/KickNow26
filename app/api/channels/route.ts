@@ -11,7 +11,7 @@ export async function GET() {
   return NextResponse.json({ channels: await getChannels() });
 }
 
-const MAX_CHANNELS = 50;
+const MAX_CHANNELS = 100;
 
 /** PUT /api/channels — replace the stored channel list. */
 export async function PUT(request: NextRequest) {
@@ -31,7 +31,8 @@ export async function PUT(request: NextRequest) {
     if (!ch || typeof ch.name !== 'string' || typeof ch.url !== 'string') continue;
     const name = ch.name.trim();
     const url = ch.url.trim();
-    if (!name || !/^https?:\/\//i.test(url)) continue;
+    // Empty url is allowed — a preset waiting for its link; skipped on the watch page.
+    if (!name || (url && !/^https?:\/\//i.test(url))) continue;
     clean.push({
       id: typeof ch.id === 'string' && ch.id ? ch.id : crypto.randomUUID(),
       name,
